@@ -144,16 +144,6 @@ void cycle_IFETCH(void) {
 	mar = zpage[PC]++;
 	bus_read(mar, &mbr);
 	
-	set_flag_cycle(1);
-	
-	return;
-}
-
-/*
- * Cycle 1: DECODE
- */
-
-void cycle_DECODE(void) {
 	set_flag_acc(get_mbr_acc());
 	
 	int opcode = get_mbr_opcode();
@@ -169,16 +159,32 @@ void cycle_DECODE(void) {
 		default:
 			// Basic instruction
 			set_flag_tmp(opcode);
-			zpage[FLAG] |= get_mbr_i() << ID;
-			zpage[FLAG] |= 1 << EX;
-			mar = address(get_mbr_z(), mbr & offset_mask);
+			
+			int zero = get_mbr_z();
+			int indirect = get_mbr_i() << ID;
+			
+			mar = address(zero, mbr & offset_mask);
+			if (opcode == 2 && zero && !indirect && mar <= PC) {
+				// short circuit for single cycle ISZ
+				data_width_t result = ++zpage[mar];
+				if (!result) zpage[PC]++;
+			} else {
+				zpage[FLAG] |= 1 << EX;
+				
+				if (indirect) {
+					if (mar <= PC)
+						mar = (010 <= mar && PC >= mar)
+							? zpage[mar]++ 
+							: zpage[mar];
+					else zpage[FLAG] |= 1 << ID;
+				}
+			}
 	}
 	
 	if ((zpage[FLAG] >> ID) & 1) set_flag_cycle(2);
 	else if ((zpage[FLAG] >> EX) & 1) set_flag_cycle(3);
 	else if ((zpage[FLAG] >> IO) & 1) set_flag_cycle(4);
 	else if ((zpage[FLAG] >> OP) & 1) set_flag_cycle(5);
-	else set_flag_cycle(10);
 	
 	return;
 }
@@ -234,6 +240,7 @@ void cycle_EXEC(void) {
 			
 			mbr = zpage[acc] & mbr;
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
+			zpage[get_flag_acc()] = mbr;
 			break;
 		
 		case 1:
@@ -247,6 +254,7 @@ void cycle_EXEC(void) {
 			else zpage[FLAG] &= ~(1 << LK); // carry clear
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
+			zpage[get_flag_acc()] = mbr;
 			break;
 
 		case 2:
@@ -255,16 +263,21 @@ void cycle_EXEC(void) {
 			mbr++;
 			if (mbr == 0) zpage[PC]++;
 			
-			zpage[FLAG] |= 1 << ID; // deferred writeback to memory
+			if (mar <= PC) { // contents in register, no deferral needed
+				zpage[mar]++;
+				zpage[FLAG] &= ~(1 << ID);
+			}
+			else zpage[FLAG] |= 1 << ID; // deferred writeback to memory
+			
 			break;
 		
 		case 3:
 			// DCA
 			mbr = zpage[acc];
 			local_write(mar, mbr);
-			mbr = 0;
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
+			zpage[get_flag_acc()] = 0;
 			break;
 		
 		case 4:
@@ -273,6 +286,7 @@ void cycle_EXEC(void) {
 			zpage[PC] = (data_width_t) mar;
 
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
+			zpage[get_flag_acc()] = mbr;
 			break;
 		
 		case 5:
@@ -281,6 +295,7 @@ void cycle_EXEC(void) {
 			zpage[PC] = (data_width_t) mar;
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
+			zpage[get_flag_acc()] = mbr;
 			break;
 		
 		default:
@@ -288,7 +303,8 @@ void cycle_EXEC(void) {
 			printf("Illegal opcode - how?!?\n");
 	}
 	
-	set_flag_cycle(9);
+	if ((zpage[FLAG] >> ID) & 1) set_flag_cycle(9);
+	else set_flag_cycle(0);
 	
 	return;
 }
@@ -312,7 +328,7 @@ void step(void) {
 			cycle_IFETCH();
 			break;
 		case 1:
-			cycle_DECODE();
+			cycle_IFETCH();
 			break;
 		case 2:
 			cycle_INADDR();

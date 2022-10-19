@@ -33,6 +33,7 @@ int main(int argc, char *argv) {
 	bus_write(4, 0b1111111111111111);
 	bus_write(5, 0b1100110011001100);
 	bus_write(6, 0b0011001100110011);
+	bus_write(7, 0b0000000000000000);
 	
 	bus_write(017, 0x0100); // initialize PC
 	
@@ -57,6 +58,9 @@ int main(int argc, char *argv) {
 	bus_write(0x0182, 0b0011001100001111); // TAD A4, #9999
 	bus_write(0x0183, 0b1001100110011001);
 	bus_write(0x0184, 0b1010001010000000); // JMP **80
+	
+	bus_write(0x0185, 0b0001001100001111); // AND A4, #0000
+	bus_write(0x0186, 0b0000000000000000);
 	
 	bus_write(0x01FE, 0b0000000100000011);
 	bus_write(0x01FF, 0b1100110011001100);
