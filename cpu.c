@@ -188,8 +188,8 @@ void cycle_DECODE(void) {
  */
 
 void cycle_INADDR(void) {
-	if (mar < 020) {
-		mar = (010 <= mar && 017 >= mar)
+	if (mar <= PC) {
+		mar = (010 <= mar && PC >= mar)
 			? zpage[mar]++ 
 			: zpage[mar];
 	} else {
@@ -206,13 +206,31 @@ void cycle_INADDR(void) {
  * Cycle 3: EXEC
  */
 
+int local_read(addr_width_t src, data_width_t *dst) {
+	if (src <= PC) {
+		*dst = zpage[src];
+		return 0;
+	} else {
+		return bus_read(src, dst);
+	}
+}
+
+int local_write(addr_width_t dst, data_width_t src) {
+	if (dst <= PC) {
+		zpage[dst] = src;
+		return 0;
+	} else {
+		return bus_write(dst, src);
+	}
+}
+
 void cycle_EXEC(void) {
 	int acc = get_flag_acc();
 	
 	switch (get_flag_tmp()) {
 		case 0:
 			// AND
-			bus_read(mar, &mbr);
+			local_read(mar, &mbr);
 			
 			mbr = zpage[acc] & mbr;
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
@@ -220,7 +238,7 @@ void cycle_EXEC(void) {
 		
 		case 1:
 			// TAD
-			bus_read(mar, &mbr);
+			local_read(mar, &mbr);
 			
 			int result = (int) zpage[acc] + (int) mbr;
 			mbr = (data_width_t) (result & 0xFFFF);
@@ -233,7 +251,7 @@ void cycle_EXEC(void) {
 
 		case 2:
 			// ISZ
-			bus_read(mar, &mbr);
+			local_read(mar, &mbr);
 			mbr++;
 			if (mbr == 0) zpage[PC]++;
 			
@@ -243,7 +261,7 @@ void cycle_EXEC(void) {
 		case 3:
 			// DCA
 			mbr = zpage[acc];
-			bus_write(mar, mbr);
+			local_write(mar, mbr);
 			mbr = 0;
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
@@ -282,7 +300,7 @@ void cycle_EXEC(void) {
 void cycle_WTBACK(void) {
 	set_flag_cycle(0);
 
-	if (zpage[FLAG] & 1 << ID) bus_write(mar, mbr);
+	if (zpage[FLAG] & 1 << ID) local_write(mar, mbr);
 	else zpage[get_flag_acc()] = mbr;
 	
 	return;
