@@ -61,6 +61,12 @@ int main(int argc, char *argv) {
 	bus_write(0x01FE, 0b0000000100000011);
 	bus_write(0x01FF, 0b1100110011001100);
 	
+	/*
+	 * Expected output:
+	 * CCCC CCCC CCCC CCCC CCCC E669 CCCC 0020
+	 * 0000 0000 0000 0000 0000 0000 0000 0110
+	 */
+	
 	while (zpage[15] != 0x110) step();
 	
 	printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
