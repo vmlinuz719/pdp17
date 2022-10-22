@@ -61,8 +61,23 @@ int get_mbr_z() {
  */
 
 /*
- * TODO: add IOT, OPR
+ * TODO: add IOT
  */
+
+/*
+ * OPR instruction format
+ * 0 1 2 3 4 5 6 7 8 9 A B C D E F
+ * Opcode      0 Gr
+ *       AccSel    Function
+ */
+
+int get_mbr_opr_gr() {
+	return (mbr & 0x0100) >> 8;
+}
+
+int get_mbr_opr_gr2_and() {
+	return (mbr & 0x0008) >> 3;
+}
 
 /*
  * Flag register layout
@@ -135,6 +150,90 @@ addr_width_t address(int z, addr_width_t offset) {
 }
 
 /*
+ * Rotating through a carry bit is slightly complicated in C -
+ * here are some helper functions to do it through the "link"
+ * bit in the PSW
+ */
+
+data_width_t ral(data_width_t value) {
+	data_width_t old_link = zpage[FLAG] & 1;
+	data_width_t new_link = (value & 0x8000) >> 15;
+	zpage[FLAG] = (zpage[FLAG] & 0xFFFE) | new_link;
+	return (value << 1) | old_link;
+}
+	
+data_width_t rar(data_width_t value) {
+	data_width_t old_link = (zpage[FLAG] & 1) << 15;
+	data_width_t new_link = value & 1;
+	zpage[FLAG] = (zpage[FLAG] & 0xFFFE) | new_link;
+	return (value >> 1) | old_link;
+}
+
+/*
+ * OPR helpers
+ */
+
+void opr1(int ucode) {
+	int acc = get_flag_acc();
+	
+	if (!ucode) {
+		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
+			zpage[0], zpage[1], zpage[2], zpage[3],
+			zpage[4], zpage[5], zpage[6], zpage[7]);
+		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
+			zpage[8], zpage[9], zpage[10], zpage[11],
+			zpage[12], zpage[13], zpage[14], zpage[15]);
+	}
+
+	if (ucode & 0x80) // CLA
+		zpage[acc] = 0;
+	if (ucode & 0x40) // CLL
+		zpage[FLAG] &= ~(1 << LK);
+	
+	if (ucode & 0x20) // CMA
+		zpage[acc] ^= 0xFFFF;
+	if (ucode & 0x10) // CML
+		zpage[FLAG] ^= 1 << LK;
+	
+	if (ucode & 0x1) { // IAC
+		int result = (int) (zpage[acc] + 1);
+		zpage[acc] = result & 0xFFFF;
+		if (result & ~(0xFFFF)) zpage[FLAG] ^= 1 << LK;
+	}
+	
+	switch ((ucode & 0xE) >> 1) {
+		case 1: // 6-bit BSW
+			zpage[acc] = (zpage[acc] & 0xF000)
+					   | ((zpage[acc] & 07700) >> 6)
+					   | ((zpage[acc] & 077) << 6);
+			break;
+		
+		case 2: // RAL once
+			zpage[acc] = ral(zpage[acc]);
+			break;
+		
+		case 3: // RAL twice
+			zpage[acc] = ral(ral(zpage[acc]));
+			break;
+		
+		case 4: // RAR once
+			zpage[acc] = rar(zpage[acc]);
+			break;
+		
+		case 5: // RAR twice
+			zpage[acc] = rar(rar(zpage[acc]));
+			break;
+		
+		case 7: // 8-bit BSW
+			zpage[acc] = (zpage[acc] & 0xFF00) >> 8
+					   | (zpage[acc] & 0xFF) << 8;
+			break;
+	}
+
+	return;
+}
+
+/*
  * Cycle 0: IFETCH
  */
 
@@ -154,6 +253,9 @@ void cycle_IFETCH(void) {
 		
 		case 7:
 			// OPR
+			if (!get_mbr_opr_gr()) // OPR1
+				opr1(mbr & offset_mask);
+			
 			break;
 		
 		default:
@@ -250,8 +352,7 @@ void cycle_EXEC(void) {
 			int result = (int) zpage[acc] + (int) mbr;
 			mbr = (data_width_t) (result & 0xFFFF);
 			
-			if (result & ~(0xFFFF)) zpage[FLAG] |= 1 << LK; // carry set
-			else zpage[FLAG] &= ~(1 << LK); // carry clear
+			if (result & ~(0xFFFF)) zpage[FLAG] ^= 1 << LK; // carry complement
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
 			zpage[get_flag_acc()] = mbr;
@@ -343,7 +444,7 @@ void step(void) {
 			printf("Invalid cycle - how?!?\n");
 	}
 	
-	printf("%04hX %04hX\n", zpage[7], zpage[15]);
+	// printf("%04hX %04hX\n", zpage[7], zpage[15]);
 }
 
 

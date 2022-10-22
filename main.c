@@ -52,6 +52,32 @@ int main(int argc, char *argv) {
 	bus_write(0x010C, 0b1001100010000001); // JMS A6, *81
 	bus_write(0x010D, 0b0011101100001111); // TAD A6, #CCCC
 	bus_write(0x010E, 0b1100110011001100);
+	bus_write(0x010F, 0b1110000000000000); // NOP
+	
+	/*
+	 * Expected output:
+	 * CCCC CCCC CCCC CCCC CCCC E669 CCCC 0020
+	 * 0000 0000 0000 0000 0000 0000 0000 0110
+	 */
+	
+	bus_write(0x0110, 0b1110000010100000); // CLA CMA A0
+	bus_write(0x0111, 0b1110010011110001); // CLA CLL CMA CML IAC A1
+	bus_write(0x0112, 0b1110100000000100); // RAL A2
+	bus_write(0x0113, 0b1110110000001000); // RAR A3
+	bus_write(0x0114, 0b1111000000000110); // RTL A4
+	bus_write(0x0115, 0b1111100000001010); // RTR A6
+	bus_write(0x0116, 0b1110000000011010); // CML RTR A0
+	bus_write(0x0117, 0b1110100000011110); // CML HSW A2
+	bus_write(0x0118, 0b1110110000000010); // BSW A3
+	bus_write(0x0119, 0b1110000000000000); // NOP
+	
+	/*
+	 * Expected output:
+	 * FFFF 0000 9899 E999 3331 E669 7333 0000
+	 * 0000 0000 0000 0000 0000 0000 0000 011A
+	 */
+	
+	bus_write(0x0179, 0b1111111111111111);
 	
 	bus_write(0x0180, 0b0000000000000000);
 	bus_write(0x0181, 0b0111100010000000); // DCA A6, *80
@@ -65,20 +91,7 @@ int main(int argc, char *argv) {
 	bus_write(0x01FE, 0b0000000100000011);
 	bus_write(0x01FF, 0b1100110011001100);
 	
-	/*
-	 * Expected output:
-	 * CCCC CCCC CCCC CCCC CCCC E669 CCCC 0020
-	 * 0000 0000 0000 0000 0000 0000 0000 0110
-	 */
-	
-	while (zpage[15] != 0x110) step();
-	
-	printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
-		zpage[0], zpage[1], zpage[2], zpage[3],
-		zpage[4], zpage[5], zpage[6], zpage[7]);
-	printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
-		zpage[8], zpage[9], zpage[10], zpage[11],
-		zpage[12], zpage[13], zpage[14], zpage[15]);
+	while (mem[zpage[15] - 1] != 0xFFFF) step();
 	
 	return 0;
 }
