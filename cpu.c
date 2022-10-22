@@ -67,12 +67,23 @@ int get_mbr_z() {
 /*
  * OPR instruction format
  * 0 1 2 3 4 5 6 7 8 9 A B C D E F
- * Opcode      0 Gr
+ * 1 1 1       0 Gr
  *       AccSel    Function
+ */
+
+/*
+ * AOP instruction format
+ * 0 1 2 3 4 5 6 7 8 9 A B C D E F
+ * 1 1 1       1 Function    SrcSel
+ *       DstSel
  */
 
 int get_mbr_opr_gr() {
 	return (mbr & 0x0100) >> 8;
+}
+
+int get_mbr_opr_regop() {
+	return (mbr & 0x0200) >> 9;
 }
 
 int get_mbr_opr_gr2_and() {
@@ -234,6 +245,119 @@ void opr1(int ucode) {
 }
 
 /*
+ * New OPR group with register-register operations
+ */
+
+void reg_op(void) {
+	int dst = get_mbr_acc();
+	int src = mbr & 07;
+	switch ((mbr & 0x01F8) >> 3) {
+		case 0x00: // MOV
+			zpage[dst] = zpage[src];
+			break;
+		
+		case 0x01: // OR
+			zpage[dst] |= zpage[src];
+			break;
+		
+		case 0x02: // XOR
+			zpage[dst] ^= zpage[src];
+			break;
+		
+		case 0x10: // JEQ
+			if (zpage[dst] == zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x11: // JNE
+			if (zpage[dst] != zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x12: // JGT
+			if (zpage[dst] > zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x13: // JGE
+			if (zpage[dst] >= zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x24: // JLT
+			if (zpage[dst] < zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x15: // JLE
+			if (zpage[dst] <= zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x16: // JTG
+			if ((short) zpage[dst] > (short) zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x17: // JTO
+			if ((short) zpage[dst] >= (short) zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x18: // JTL
+			if ((short) zpage[dst] < (short) zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+		
+		case 0x19: // JTU
+			if ((short) zpage[dst] <= (short) zpage[src]) {
+				zpage[FLAG] |= 1 << EX;
+				zpage[FLAG] |= 1 << ID;
+				mar = zpage[PC];
+				set_flag_tmp(5);
+			} else zpage[PC]++;
+			break;
+	}
+	return;
+}
+
+/*
  * Cycle 0: IFETCH
  */
 
@@ -242,8 +366,7 @@ void cycle_IFETCH(void) {
 
 	mar = zpage[PC]++;
 	bus_read(mar, &mbr);
-	
-	set_flag_acc(get_mbr_acc());
+	// printf("%04X %04hX\n", mar, mbr);
 	
 	int opcode = get_mbr_opcode();
 	switch (opcode) {
@@ -253,14 +376,20 @@ void cycle_IFETCH(void) {
 		
 		case 7:
 			// OPR
-			if (!get_mbr_opr_gr()) // OPR1
+			if (get_mbr_opr_regop()) { // Reg-reg operation
+				reg_op();
+			}
+			else if (!get_mbr_opr_gr()) { // OPR1
+				set_flag_acc(get_mbr_acc());
 				opr1(mbr & offset_mask);
+			}
 			
 			break;
 		
 		default:
 			// Basic instruction
 			set_flag_tmp(opcode);
+			set_flag_acc(get_mbr_acc());
 			
 			int zero = get_mbr_z();
 			int indirect = get_mbr_i() << ID;
@@ -392,11 +521,11 @@ void cycle_EXEC(void) {
 		
 		case 5:
 			// JMP
-			mbr = zpage[acc];
+			// mbr = zpage[acc];
 			zpage[PC] = (data_width_t) mar;
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
-			zpage[get_flag_acc()] = mbr;
+			// zpage[get_flag_acc()] = mbr;
 			break;
 		
 		default:
