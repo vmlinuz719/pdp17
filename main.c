@@ -56,7 +56,7 @@ int main(int argc, char *argv) {
 	
 	/*
 	 * Expected output:
-	 * CCCC CCCC CCCC CCCC CCCC E669 CDD9 0001
+	 * CCCC CCCC CCCC CCCC CCCC E601 CCCC 0000
 	 * 0000 0000 0000 0000 0000 0000 0000 0110
 	 */
 	
@@ -73,11 +73,11 @@ int main(int argc, char *argv) {
 	
 	/*
 	 * Expected output:
-	 * FFFF 0000 9899 E999 3331 E669 F376 0000
+	 * FFFF 0000 9899 E999 3331 E601 7333 0000
 	 * 0000 0000 0000 0000 0000 0000 0000 011A
 	 */
 	
-	bus_write(0x011A, 0b1111111111111111);
+	bus_write(0x011A, 0b1110000100000010);
 	
 	bus_write(0x0180, 0b0000000000000000);
 	bus_write(0x0181, 0b0111100010000000); // DCA A6, *80
@@ -91,7 +91,7 @@ int main(int argc, char *argv) {
 	bus_write(0x01FE, 0b0000000100000011);
 	bus_write(0x01FF, 0b1100110011001100);
 	
-	while (mem[zpage[15] - 1] != 0xFFFF) {
+	while ((zpage[7] & 0x1E0) >> 5 != 0xF) {
 		step();
 		printf("%04hX %04hX\n", zpage[7], zpage[15]);
 	}

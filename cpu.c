@@ -74,8 +74,8 @@ int get_mbr_z() {
 /*
  * AOP instruction format
  * 0 1 2 3 4 5 6 7 8 9 A B C D E F
- * 1 1 1       1 1 Function  SrcSel
- *       DstSel
+ * 1 1 1       1 1 Function
+ *       DstSel            Src/Imm4
  */
 
 int get_mbr_opr_gr() {
@@ -244,6 +244,47 @@ void opr1(int ucode) {
 	return;
 }
 
+void opr2(int ucode) {
+	int acc = get_flag_acc();
+	
+	if (!ucode) {
+		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
+			zpage[0], zpage[1], zpage[2], zpage[3],
+			zpage[4], zpage[5], zpage[6], zpage[7]);
+		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
+			zpage[8], zpage[9], zpage[10], zpage[11],
+			zpage[12], zpage[13], zpage[14], zpage[15]);
+	}
+
+	else if (ucode & 1); // opr3(ucode);
+	
+	else if (!((ucode & 0x0008) >> 3)) { // OR group
+		int skip = 0;
+		
+		if ((ucode & 0x40) && zpage[acc] & 0x8000) skip = 1; // SMA
+		if ((ucode & 0x20) && zpage[acc] == 0) skip = 1; // SZA
+		if ((ucode & 0x10) && zpage[FLAG] & 1) skip = 1; // SNL
+		
+		if (skip) zpage[PC]++;
+	}
+	
+	else { // AND group
+		int skip = 1;
+		
+		if (ucode & 0x40) skip &= (zpage[acc] & 0x8000 == 0); // SPA
+		if (ucode & 0x20) skip &= (zpage[acc] != 0); // SNA
+		if (ucode & 0x10) skip &= (zpage[FLAG] & 1 == 0); // SZL
+		
+		if (skip) zpage[PC]++;
+	}
+	
+	if (ucode & 0x80) zpage[acc] = 0; // CLA
+	
+	if (ucode & 0x02) set_flag_cycle(0xF); // HLT
+	
+	return;
+}
+
 /*
  * New OPR group with register-register operations
  */
@@ -253,7 +294,7 @@ void reg_op(void) {
 	int src = mbr & 07;
 	unsigned int result = 0;
 	
-	switch ((mbr & 0x00F8) >> 3) {
+	switch ((mbr & 0x00F0) >> 4) {
 		case 0x00: // MOV
 			zpage[dst] = zpage[src];
 			break;
@@ -302,6 +343,10 @@ void cycle_IFETCH(void) {
 				set_flag_acc(get_mbr_acc());
 				opr1(mbr & offset_mask);
 			}
+			else if (get_mbr_opr_gr()) { // OPR2
+				set_flag_acc(get_mbr_acc());
+				opr2(mbr & offset_mask);
+			}
 			
 			break;
 		
@@ -314,7 +359,7 @@ void cycle_IFETCH(void) {
 			int indirect = get_mbr_i() << ID;
 			
 			mar = address(zero, mbr & offset_mask);
-			if (opcode <= 2 && zero && !indirect && mar <= PC) {
+			if (opcode <= 3 && zero && !indirect && mar <= PC) {
 				int result;
 				switch (opcode) {
 					case 0: // ANDR
@@ -329,8 +374,27 @@ void cycle_IFETCH(void) {
 						result = ++zpage[mar];
 						if (!result) zpage[PC]++;
 						break;
+					case 3: // DCAR
+						zpage[mar] = zpage[get_flag_acc()];
+						zpage[get_flag_acc()] = 0;
+						break;
 				}
-			} else {
+			}
+			
+			else if (opcode >= 4 && zero && indirect && mar <= PC) { // JMSR, JMPR
+				addr_width_t jmp_addr = (010 <= mar && PC >= mar)
+					? zpage[mar]++ 
+					: zpage[mar];
+				if (opcode == 4) zpage[get_flag_acc()] = zpage[PC];
+				zpage[PC] = jmp_addr;
+			}
+			
+			else if (opcode >= 4 && !indirect) { // JMS, JMP
+				if (opcode == 4) zpage[get_flag_acc()] = zpage[PC];
+				zpage[PC] = (data_width_t) mar;
+			}
+			
+			else {
 				zpage[FLAG] |= 1 << EX;
 				
 				if (indirect) {
@@ -438,8 +502,7 @@ void cycle_EXEC(void) {
 			local_write(mar, mbr);
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
-			if (get_flag_acc() < 4) // do not clear A4-A6 or PSW on deposit
-				zpage[get_flag_acc()] = 0;
+			zpage[get_flag_acc()] = 0;
 			break;
 		
 		case 4:
