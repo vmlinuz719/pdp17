@@ -77,16 +77,7 @@ int main(int argc, char *argv) {
 	 * 0000 0000 0000 0000 0000 0000 0000 011A
 	 */
 	
-	bus_write(0x011A, 0b1110101000000000); // MOV A2, A0
-	bus_write(0x011B, 0b1110011010000000); // JEQ A1, A0, #011B
-	bus_write(0x011C, 0b0000000100011011);
-	bus_write(0x011D, 0b1110101010000000); // JEQ A2, A0, #0177
-	bus_write(0x011E, 0b0000000101111000);
-	
 	bus_write(0x0170, 0b1111111111111111);
-	
-	bus_write(0x0178, 0b1110000000000000); // NOP
-	bus_write(0x0179, 0b1010000000011111); // JMP *1F
 	
 	bus_write(0x0180, 0b0000000000000000);
 	bus_write(0x0181, 0b0111100010000000); // DCA A6, *80
@@ -100,7 +91,10 @@ int main(int argc, char *argv) {
 	bus_write(0x01FE, 0b0000000100000011);
 	bus_write(0x01FF, 0b1100110011001100);
 	
-	while (mem[zpage[15] - 1] != 0xFFFF) step();
+	while (mem[zpage[15] - 1] != 0xFFFF) {
+		step();
+		if (zpage[7] == 0xE668) printf("%hX\n", zpage[15]);
+	}
 	
 	return 0;
 }

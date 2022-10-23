@@ -251,107 +251,19 @@ void opr1(int ucode) {
 void reg_op(void) {
 	int dst = get_mbr_acc();
 	int src = mbr & 07;
+	unsigned int result = 0;
+	
 	switch ((mbr & 0x01F8) >> 3) {
 		case 0x00: // MOV
 			zpage[dst] = zpage[src];
 			break;
 		
-		case 0x01: // OR
+		case 0x02: // OR
 			zpage[dst] |= zpage[src];
 			break;
 		
-		case 0x02: // XOR
+		case 0x03: // XOR
 			zpage[dst] ^= zpage[src];
-			break;
-		
-		case 0x10: // JEQ
-			if (zpage[dst] == zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x11: // JNE
-			if (zpage[dst] != zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x12: // JGT
-			if (zpage[dst] > zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x13: // JGE
-			if (zpage[dst] >= zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x24: // JLT
-			if (zpage[dst] < zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x15: // JLE
-			if (zpage[dst] <= zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x16: // JTG
-			if ((short) zpage[dst] > (short) zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x17: // JTO
-			if ((short) zpage[dst] >= (short) zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x18: // JTL
-			if ((short) zpage[dst] < (short) zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
-			break;
-		
-		case 0x19: // JTU
-			if ((short) zpage[dst] <= (short) zpage[src]) {
-				zpage[FLAG] |= 1 << EX;
-				zpage[FLAG] |= 1 << ID;
-				mar = zpage[PC];
-				set_flag_tmp(5);
-			} else zpage[PC]++;
 			break;
 	}
 	return;
@@ -395,10 +307,22 @@ void cycle_IFETCH(void) {
 			int indirect = get_mbr_i() << ID;
 			
 			mar = address(zero, mbr & offset_mask);
-			if (opcode == 2 && zero && !indirect && mar <= PC) {
-				// short circuit for single cycle ISZ
-				data_width_t result = ++zpage[mar];
-				if (!result) zpage[PC]++;
+			if (opcode <= 2 && zero && !indirect && mar <= PC) {
+				int result;
+				switch (opcode) {
+					case 0: // ANDR
+						zpage[get_flag_acc()] &= zpage[mar];
+						break;
+					case 1: // TADR
+						result = (int) zpage[get_flag_acc()] + (int) zpage[mar];						
+						if (result & ~(0xFFFF)) zpage[FLAG] ^= 1 << LK; // carry complement
+						zpage[get_flag_acc()] = (data_width_t) (result & 0xFFFF);
+						break;
+					case 2: // ISZR
+						result = ++zpage[mar];
+						if (!result) zpage[PC]++;
+						break;
+				}
 			} else {
 				zpage[FLAG] |= 1 << EX;
 				
