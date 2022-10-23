@@ -74,7 +74,7 @@ int get_mbr_z() {
 /*
  * AOP instruction format
  * 0 1 2 3 4 5 6 7 8 9 A B C D E F
- * 1 1 1       1 Function    SrcSel
+ * 1 1 1       1 1 Function  SrcSel
  *       DstSel
  */
 
@@ -249,13 +249,19 @@ void opr1(int ucode) {
  */
 
 void reg_op(void) {
-	int dst = get_mbr_acc();
+	int dst = get_flag_acc();
 	int src = mbr & 07;
 	unsigned int result = 0;
 	
-	switch ((mbr & 0x01F8) >> 3) {
+	switch ((mbr & 0x00F8) >> 3) {
 		case 0x00: // MOV
 			zpage[dst] = zpage[src];
+			break;
+			
+		case 0x01: // SWP
+			result = zpage[src];
+			zpage[src] = zpage[dst];
+			zpage[dst] = result;
 			break;
 		
 		case 0x02: // OR
@@ -288,7 +294,8 @@ void cycle_IFETCH(void) {
 		
 		case 7:
 			// OPR
-			if (get_mbr_opr_regop()) { // Reg-reg operation
+			if (get_mbr_opr_regop() && get_mbr_opr_gr()) { // Reg-reg operation
+				set_flag_acc(get_mbr_acc());
 				reg_op();
 			}
 			else if (!get_mbr_opr_gr()) { // OPR1
@@ -431,7 +438,8 @@ void cycle_EXEC(void) {
 			local_write(mar, mbr);
 			
 			zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
-			zpage[get_flag_acc()] = 0;
+			if (get_flag_acc() < 4) // do not clear A4-A6 or PSW on deposit
+				zpage[get_flag_acc()] = 0;
 			break;
 		
 		case 4:
