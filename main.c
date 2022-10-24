@@ -32,12 +32,10 @@ void run_cpu(void) {
 }
 
 void regs(void) {
-	printf("A0   A1   A2   A3   A4   A5   A6   PSW\n");   
 	printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
 		zpage[0], zpage[1], zpage[2], zpage[3],
 		zpage[4], zpage[5], zpage[6], zpage[7]);
 	
-	printf("I0   I1   I2   I3   I4   I5   I6   PC\n");
 	printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
 		zpage[8], zpage[9], zpage[10], zpage[11],
 		zpage[12], zpage[13], zpage[14], zpage[15]);
@@ -64,7 +62,7 @@ int main(int argc, char *argv) {
 		data_width_t value = 0;
 		char garbage = '\0';
 		
-		printf("%04hX %04hX> ", addr, switches);
+		printf("%04hX ", addr);
 		
 		char *line = NULL;
 		size_t len = 0;
@@ -115,11 +113,13 @@ int main(int argc, char *argv) {
 				else { step(); regs(); }
 				break;
 			case 'r': // view regs
-				if (valid > 1) printf("?\n");
-				else regs();
+				if (valid == 1) regs();
+				else if (valid == 2 && value <= 15) printf("%04hX\n", zpage[value]);
+				else printf("?\n");
 				break;
 			case 'w': // set switches
 				if (valid == 2) switches = value;
+				else if (valid == 1) printf("%04hX\n", switches);
 				else printf("?\n");
 				break;
 			case 'q': // quit
