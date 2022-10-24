@@ -332,7 +332,6 @@ void cycle_IFETCH(void) {
 				opr1(mbr & offset_mask);
 			}
 			else if (get_mbr_opr_gr()) { // OPR2
-				printf("OPR2\n");
 				set_flag_acc(get_mbr_acc());
 				opr2(mbr & offset_mask);
 			}
