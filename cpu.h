@@ -8,6 +8,7 @@ extern int cpu_write(addr_width_t dst, data_width_t src);
 extern int cpu_attn(data_width_t cmd);
 
 extern data_width_t zpage[PAGE_SIZE];
+extern data_width_t switches;
 
 extern void step(void);
 

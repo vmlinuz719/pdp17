@@ -6,6 +6,7 @@
 #include "bus.h"
 
 data_width_t zpage[PAGE_SIZE];
+data_width_t switches;
 
 /*
  * Bus interface functions
@@ -187,14 +188,7 @@ data_width_t rar(data_width_t value) {
 void opr1(int ucode) {
 	int acc = get_flag_acc();
 	
-	if (!ucode) {
-		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
-			zpage[0], zpage[1], zpage[2], zpage[3],
-			zpage[4], zpage[5], zpage[6], zpage[7]);
-		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
-			zpage[8], zpage[9], zpage[10], zpage[11],
-			zpage[12], zpage[13], zpage[14], zpage[15]);
-	}
+	if (!ucode) {}
 
 	if (ucode & 0x80) // CLA
 		zpage[acc] = 0;
@@ -247,14 +241,7 @@ void opr1(int ucode) {
 void opr2(int ucode) {
 	int acc = get_flag_acc();
 	
-	if (!ucode) {
-		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
-			zpage[0], zpage[1], zpage[2], zpage[3],
-			zpage[4], zpage[5], zpage[6], zpage[7]);
-		printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
-			zpage[8], zpage[9], zpage[10], zpage[11],
-			zpage[12], zpage[13], zpage[14], zpage[15]);
-	}
+	if (!ucode) {}
 
 	else if (ucode & 1); // opr3(ucode);
 	
@@ -280,6 +267,7 @@ void opr2(int ucode) {
 	
 	if (ucode & 0x80) zpage[acc] = 0; // CLA
 	
+	if (ucode & 0x04) zpage[acc] |= switches; // OSR
 	if (ucode & 0x02) set_flag_cycle(0xF); // HLT
 	
 	return;
@@ -344,6 +332,7 @@ void cycle_IFETCH(void) {
 				opr1(mbr & offset_mask);
 			}
 			else if (get_mbr_opr_gr()) { // OPR2
+				printf("OPR2\n");
 				set_flag_acc(get_mbr_acc());
 				opr2(mbr & offset_mask);
 			}
