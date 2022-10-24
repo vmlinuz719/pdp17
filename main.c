@@ -21,14 +21,16 @@ int mem_write(addr_width_t dst, data_width_t src) {
 	return 0;
 }
 
-void run_cpu(void) {
+int run_cpu(void) {
+int cycles = 0;
 	while ((zpage[7] & 0x1E0) >> 5 != 0xF) {
 		step();
+		cycles++;
 	}
 	
 	zpage[7] ^= 0x1E0;
 	
-	return;
+	return cycles;
 }
 
 void regs(void) {
@@ -121,15 +123,17 @@ int main(int argc, char *argv) {
 				if (valid > 1) printf("?\n");
 				else {
 					zpage[15] = addr;
-					run_cpu();
+					int cycles = run_cpu();
 					addr = zpage[15];
+					printf("%d\n", cycles);
 				}
 				break;
 			case 'c': // continue
 				if (valid > 1) printf("?\n");
 				else {
-					run_cpu();
+					int cycles = run_cpu();
 					addr = zpage[15];
+					printf("%d\n", cycles);
 				}
 				break;
 			case 's': // single step
