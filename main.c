@@ -43,12 +43,29 @@ void regs(void) {
 	return;
 }
 
+addr_width_t dump(addr_width_t address, data_width_t lines) {
+	address &= 0xFFF8;
+	for (int i = 0; i < lines; i++) {
+		printf("%04hX|", (unsigned short) address);
+		for (int j = 0; j < 8; j++) {
+			data_width_t data;
+			bus_read(address++, &data);
+			address &= 0xFFFF;
+			printf("%04hX ", data);
+		}
+		printf("\n");
+	}
+	return address;
+}
+
 int main(int argc, char *argv) {
 	init_bus();
 	switches = 0;
 	
 	install_unit(0, cpu_read, cpu_write);
-	install_unit(1, mem_read, mem_write);
+	
+	for (int i = 1; i <= 16; i++) // 4 KW core
+		install_unit(i, mem_read, mem_write);
 	
 	int run = 1;
 	
@@ -57,6 +74,7 @@ int main(int argc, char *argv) {
 	char command = '\0';
 	data_width_t addr = 0;
 	data_width_t data = 0;
+	data_width_t dump_len = 0;
 	
 	while (run) {
 		data_width_t value = 0;
@@ -68,7 +86,6 @@ int main(int argc, char *argv) {
 		size_t len = 0;
 		getline(&line, &len, stdin);
 		int valid = sscanf(line, " %c%4hX %c", &command, &value, &garbage);
-		free(line);
 		
 		command = tolower(command);
 		
@@ -93,6 +110,13 @@ int main(int argc, char *argv) {
 					addr++;
 				}
 				break;
+			case 'u': // dump
+				if (valid > 2) printf("?\n");
+				else {
+					if (valid == 2) dump_len = value;
+					addr = dump(addr, dump_len);
+				}
+				break;
 			case 'g': // go
 				if (valid > 1) printf("?\n");
 				else {
@@ -110,7 +134,11 @@ int main(int argc, char *argv) {
 				break;
 			case 's': // single step
 				if (valid > 1) printf("?\n");
-				else { step(); regs(); }
+				else step();
+				break;
+			case 't': // step and show regs
+				if (valid == 1) { step(); regs(); }
+				else printf("?\n");
 				break;
 			case 'r': // view regs
 				if (valid == 1) regs();
@@ -127,8 +155,10 @@ int main(int argc, char *argv) {
 				else run = 0;
 				break;
 			default:
-				printf("?\n");
+				printf("%s ?\n", line);
 		}
+		
+		free(line);
 	}
 	
 	return 0;
