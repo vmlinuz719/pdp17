@@ -100,11 +100,15 @@ int main(int argc, char *argv) {
 				else {
 					zpage[15] = addr;
 					run_cpu();
+					addr = zpage[15];
 				}
 				break;
 			case 'c': // continue
 				if (valid > 1) printf("?\n");
-				else run_cpu();
+				else {
+					run_cpu();
+					addr = zpage[15];
+				}
 				break;
 			case 's': // single step
 				if (valid > 1) printf("?\n");
