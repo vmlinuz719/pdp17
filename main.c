@@ -36,7 +36,7 @@ unsigned int run_cpu(void) {
 		step();
 		cycles++;
 	}
-	printf("HLT\n");
+	
 	zpage[7] ^= 0x1E0;
 	
 	run_tty = 0;
@@ -133,8 +133,9 @@ int main(int argc, char *argv) {
 				}
 				break;
 			case 'g': // go
-				if (valid > 1) printf("?\n");
+				if (valid > 2) printf("?\n");
 				else {
+					if (valid == 2) addr = value;
 					zpage[15] = addr;
 					unsigned int cycles = run_cpu();
 					addr = zpage[15];

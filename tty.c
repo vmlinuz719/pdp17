@@ -26,6 +26,8 @@ int tty_attn(size_t unit, data_width_t cmd) {
 
 int run_tty = 0;
 
+extern int get_flag_acc();
+
 void *tty(void *vargp) {
 	size_t *unit_no_ptr = (size_t *) vargp;
 	size_t unit_no = *unit_no_ptr;
@@ -46,7 +48,14 @@ void *tty(void *vargp) {
 		int did_something = my_cmd != 0xFFFF;
 		
 		if (did_something) {
-			printf("Unit %X cmd %hX\n", unit_no, my_cmd);
+			switch (my_cmd) {
+				case 0x4:
+					printf("%c", (char) (zpage[get_flag_acc()] & 0xFF));
+					break;
+				case 0x1:
+					zpage[PC]++;
+					break;
+			}
 			zpage[FLAG] &= ~(1 << IO);
 		}
 	}

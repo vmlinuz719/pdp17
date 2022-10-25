@@ -11,17 +11,29 @@ SAV1,   #0000               /                   - 0000
 
 / To pop, just do TAD Ax I Z I6
 
-@0100
-MAIN,   TAD A1 I Z PC       / 00100111 00001111 - 270f
-        # 0010              /                   - 0010
-        CMA IAC A1          / 11100100 00100001 - e421
+@0018
+PRINT,	DCA A0 Z I0			/ 01100001 00001000 - 6108
+		DCA A1 I Z PC       / 01100111 00001111 - 670f
+SAV1,   #0000               /                   - 0000
 
-LOOP,   IAC A2              / 11101000 00000001 - e801
-        MOV A0, A2          / 11100011 00000010 - e302
-        JMS A6 Z PUSH       / 10011001 00010000 - 9910
-        ISZ Z A1            / 01000001 00000001 - 4101
-        JMP LOOP            / 10100000 00000011 - a003
-
-        HLT                 / 11100001 00000010 - e102
-
-/ You want to initialize I6 to something first
+		TAD A1 I Z PC		/ 00100111 00001111 - 270f
+		#00FF				/ 00000000 11111111 - 00ff
+		
+LOOP,	TAD A0 I Z I0		/ 00100011 00001000 - 2308
+TEST,	SNA A0              / 11100001 00101000 - e128
+		JMP END				/ 10100000 xxxxxxxx - a029
+		TPC A0				/ 11000000 00100100 - c024
+WAIT,	TSF					/ 11000000 00100001 - c021
+		JMP WAIT			/ 10100000 xxxxxxxx - a021
+		HSW A0				/ 11100000 00001110 - e00e
+		AND A0 Z A1			/ 00000001 00000001 - 0101
+		CML					/ 11100000 00010000 - e010
+		SNL					/ 11100001 00010000 - e110
+		JMP LOOP			/ 10100000 xxxxxxxx - a01d
+		JMP TEST			/ 10100000 xxxxxxxx - a01e
+		
+END,	TAD A0 Z I0			/ 00100001 00001000 - 2108
+		CLA A1				/ 11100100 10000000 - e480
+		DCA A1 Z I0			/ 01100101 00001000 - 6508
+		TAD A1 SAV1			/ 00100100 xxxxxxxx - 241a
+		JMP I Z A6          / 10100011 00000110 - a306

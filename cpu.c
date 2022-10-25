@@ -317,6 +317,7 @@ void cycle_IFETCH(void) {
 			// IOT
 			mar = (mbr & 0x3F0) >> 4;
 			set_flag_tmp(mbr & 0x7);
+			set_flag_acc(get_mbr_acc());
 			
 			if (!bus_attn(mar, get_flag_tmp()))
 				zpage[FLAG] |= 1 << IO;
