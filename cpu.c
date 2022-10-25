@@ -24,7 +24,7 @@ int cpu_write(addr_width_t dst, data_width_t src) {
 	return 0;
 }
 
-int cpu_attn(data_width_t cmd) {
+int cpu_attn(size_t unit, data_width_t cmd) {
 	return ENOSYS;
 }
 

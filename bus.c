@@ -39,7 +39,7 @@ int (*write[MAX_PAGES])(addr_width_t dst, data_width_t src);
  * return int: 0 on success, nonzero on error (see errno.h for possible values)
  */
 
-int (*attn[MAX_PAGES])(data_width_t cmd);
+int (*attn[MAX_PAGES])(size_t unit, data_width_t cmd);
 
 /*
  * Initialize bus arrays, very important so we can reliably say what addresses
@@ -85,7 +85,7 @@ int install_unit(
 
 extern int install_attn(
 	size_t pgn,
-	int (*unit_attn) (data_width_t)
+	int (*unit_attn) (size_t, data_width_t)
 ) {
 	if (pgn >= MAX_PAGES) return EINVAL;
 	
@@ -133,5 +133,5 @@ int bus_write(addr_width_t dst, data_width_t src) {
 
 int bus_attn(size_t unit, data_width_t cmd) {
 	if (unit >= MAX_PAGES || attn[unit] == NULL) return EINVAL;
-	else return (*attn[unit])(cmd);
+	else return (*attn[unit])(unit, cmd);
 }

@@ -29,7 +29,7 @@ extern int install_unit(
 
 extern int install_attn(
 	size_t pgn,
-	int (*unit_attn) (data_width_t)
+	int (*unit_attn) (size_t, data_width_t)
 );
 
 extern int addr_split(addr_width_t addr, size_t *pgn, size_t *offset);
