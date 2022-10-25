@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "bus.h"
+#include "cpu.h"
 
 data_width_t zpage[PAGE_SIZE];
 data_width_t switches;
@@ -27,9 +29,6 @@ int cpu_write(addr_width_t dst, data_width_t src) {
 int cpu_attn(size_t unit, data_width_t cmd) {
 	return ENOSYS;
 }
-
-#define FLAG 07
-#define PC 017
 
 addr_width_t mar = 0;
 data_width_t mbr = 0;
@@ -62,7 +61,10 @@ int get_mbr_z() {
  */
 
 /*
- * TODO: add IOT
+ * IOT instruction format
+ * 0 1 2 3 4 5 6 7 8 9 A B C D E F
+ * 1 1 0       Device      0
+ *       AccSel              Func
  */
 
 /*
@@ -97,12 +99,6 @@ int get_mbr_opr_gr2_and() {
  * AccSel        Cycle   Id  Io  Lk
  *       Tmp               Ex  Op
  */
-
-#define ID 4
-#define EX 3
-#define IO 2
-#define OP 1
-#define LK 0
 
 /*
  * Getters and setters for the accumulator select flags
@@ -319,6 +315,11 @@ void cycle_IFETCH(void) {
 	switch (opcode) {
 		case 6:
 			// IOT
+			mar = (mbr & 0x3F0) >> 4;
+			set_flag_tmp(mbr & 0x7);
+			
+			if (!bus_attn(mar, get_flag_tmp()))
+				zpage[FLAG] |= 1 << IO;
 			break;
 		
 		case 7:
@@ -523,6 +524,14 @@ void cycle_EXEC(void) {
 }
 
 /*
+ * Cycle 4: IOWAIT
+ */
+
+void cycle_IOWAIT(void) {
+	if (!(zpage[FLAG] & 1 << IO)) set_flag_cycle(0);
+}
+
+/*
  * Cycle 9: WTBACK
  */
 
@@ -548,6 +557,9 @@ void step(void) {
 			break;
 		case 3:
 			cycle_EXEC();
+			break;
+		case 4:
+			cycle_IOWAIT();
 			break;
 		case 9:
 			cycle_WTBACK();

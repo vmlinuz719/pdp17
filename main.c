@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "bus.h"
 #include "cpu.h"
+#include "tty.h"
 
 #define MEM_SIZE 65536
 
@@ -23,13 +25,22 @@ int mem_write(addr_width_t dst, data_width_t src) {
 
 unsigned int run_cpu(void) {
 	unsigned int cycles = 0;
+	
+	run_tty = 1;
+	
+	pthread_t tty_tid;
+	size_t tty_id = 2;
+	pthread_create(&tty_tid, NULL, tty, (void *) &tty_id);
+	
 	while ((zpage[7] & 0x1E0) >> 5 != 0xF) {
 		step();
 		cycles++;
 	}
-	
+	printf("HLT\n");
 	zpage[7] ^= 0x1E0;
 	
+	run_tty = 0;
+	pthread_join(tty_tid, NULL);
 	return cycles;
 }
 
@@ -68,6 +79,8 @@ int main(int argc, char *argv) {
 	
 	for (int i = 1; i <= 16; i++) // 4 KW core
 		install_unit(i, mem_read, mem_write);
+	
+	install_attn(2, tty_attn);
 	
 	int run = 1;
 	
