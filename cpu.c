@@ -319,8 +319,11 @@ void cycle_IFETCH(void) {
 			set_flag_tmp(mbr & 0x7);
 			set_flag_acc(get_mbr_acc());
 			
-			if (!bus_attn(mar, get_flag_tmp()))
-				zpage[FLAG] |= 1 << IO;
+			zpage[FLAG] |= 1 << IO;
+			set_flag_cycle(4);
+			
+			if (bus_attn(mar, get_flag_tmp()))
+				zpage[FLAG] &= ~(1 << IO);
 			break;
 		
 		case 7:
@@ -399,7 +402,6 @@ void cycle_IFETCH(void) {
 	
 	if ((zpage[FLAG] >> ID) & 1) set_flag_cycle(2);
 	else if ((zpage[FLAG] >> EX) & 1) set_flag_cycle(3);
-	else if ((zpage[FLAG] >> IO) & 1) set_flag_cycle(4);
 	else if ((zpage[FLAG] >> OP) & 1) set_flag_cycle(5);
 	
 	return;
@@ -529,7 +531,7 @@ void cycle_EXEC(void) {
  */
 
 void cycle_IOWAIT(void) {
-	if (!(zpage[FLAG] & 1 << IO)) set_flag_cycle(0);
+	if (!(zpage[FLAG] & (1 << IO))) set_flag_cycle(0);
 }
 
 /*

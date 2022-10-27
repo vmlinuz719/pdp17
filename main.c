@@ -41,6 +41,8 @@ unsigned int run_cpu(void) {
 	
 	run_tty = 0;
 	pthread_join(tty_tid, NULL);
+	
+	printf("\n");
 	return cycles;
 }
 
