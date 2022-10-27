@@ -54,6 +54,7 @@ void *tty(void *vargp) {
 		int did_something = my_cmd != 0xFFFF;
 		
 		if (did_something) {
+			zpage[FLAG] &= ~(1 << IO);
 			switch (my_cmd) {
 				case 0x4:
 					printf("%c", (char) (zpage[get_flag_acc()] & 0xFF));
@@ -63,7 +64,7 @@ void *tty(void *vargp) {
 					zpage[PC]++;
 					break;
 			}
-			zpage[FLAG] &= ~(1 << IO);
+			
 		}
 
 	}

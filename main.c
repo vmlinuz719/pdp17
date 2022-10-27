@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "bus.h"
 #include "cpu.h"
@@ -23,25 +24,35 @@ int mem_write(addr_width_t dst, data_width_t src) {
 	return 0;
 }
 
+int cpu_running = 0;
+
+void ctrl_c(int dummy) {
+    cpu_running = 0;
+}
+
 unsigned int run_cpu(void) {
 	unsigned int cycles = 0;
 	
 	run_tty = 1;
+	cpu_running = 1;
+	
+	signal(SIGINT, ctrl_c);
 	
 	pthread_t tty_tid;
 	size_t tty_id = 2;
 	pthread_create(&tty_tid, NULL, tty, (void *) &tty_id);
 	
-	while ((zpage[7] & 0x1E0) >> 5 != 0xF) {
+	while ((zpage[7] & 0x1E0) >> 5 != 0xF && cpu_running) {
 		step();
 		cycles++;
 	}
 	
-	zpage[7] ^= 0x1E0;
+	zpage[7] &= ~(0x1E0);
 	
 	run_tty = 0;
 	pthread_join(tty_tid, NULL);
 	
+	signal(SIGINT, NULL);
 	printf("\n");
 	return cycles;
 }
@@ -163,6 +174,10 @@ int main(int argc, char *argv) {
 			case 'r': // view regs
 				if (valid == 1) regs();
 				else if (valid == 2 && value <= 15) printf("%04hX\n", zpage[value]);
+				else printf("?\n");
+				break;
+			case 'z': // zap registers
+				if (valid == 1) for (int i = 0; i < 16; zpage[i++] = 0);
 				else printf("?\n");
 				break;
 			case 'w': // set switches
