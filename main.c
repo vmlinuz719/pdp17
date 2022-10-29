@@ -5,6 +5,8 @@
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
+#include <poll.h>
+#include <termios.h>
 
 #include "bus.h"
 #include "cpu.h"
@@ -38,9 +40,19 @@ unsigned int run_cpu(void) {
 	
 	signal(SIGINT, ctrl_c);
 	
+	struct termios oldt, newt;
+	tcgetattr(0, &oldt);
+	newt = oldt;
+	newt.c_lflag &= ~(ICANON);
+	tcsetattr(0, TCSANOW, &newt);
+	
 	pthread_t tty_tid;
 	size_t tty_id = 2;
 	pthread_create(&tty_tid, NULL, tty, (void *) &tty_id);
+	
+	pthread_t ttyin_tid;
+	size_t ttyin_id = 3;
+	pthread_create(&ttyin_tid, NULL, ttyin, (void *) &ttyin_id);
 	
 	while ((zpage[7] & 0x1E0) >> 5 != 0xF && cpu_running) {
 		step();
@@ -51,9 +63,13 @@ unsigned int run_cpu(void) {
 	
 	run_tty = 0;
 	pthread_join(tty_tid, NULL);
+	pthread_join(ttyin_tid, NULL);
+	
+	tcsetattr(0, TCSANOW, &oldt);
 	
 	signal(SIGINT, NULL);
 	printf("\n");
+	
 	return cycles;
 }
 
@@ -94,6 +110,7 @@ int main(int argc, char *argv) {
 		install_unit(i, mem_read, mem_write);
 	
 	install_attn(2, tty_attn);
+	install_attn(3, tty_attn);
 	
 	int run = 1;
 	
