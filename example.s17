@@ -1,6 +1,6 @@
-@0010
+@10
 PUSH,   DCA A1 I Z PC       / 01100111 00001111 - 670f
-SAV1,   #0000               /                   - 0000
+SAV1,   #0000               /                   - 0000 @11
 
         CLA CMA A1          / 11100100 10100000 - e4a0
         TAD A1 Z I6         / 00100101 00001110 - 250e
@@ -11,28 +11,75 @@ SAV1,   #0000               /                   - 0000
 
 / To pop, just do TAD Ax I Z I6
 
-@0018
-PRINT,	DCA A0 Z I0			/ 01100001 00001000 - 6108 18
-		DCA A1 I Z PC       / 01100111 00001111 - 670f
-SAV1,   #0000               /                   - 0000 1a
+@18
+GETPKC, CLA A0              / 11100000 10000000 - e080
+        TAD A0 I Z A1       / 00100011 00000001 - 2301
+        SNL                 / 11100001 00010000 - e110
+        JMP MASK            / 10100000 xxxxxxxx - a01e
+        
+        HSW A0              / 11100100 00001110 - e00e
+        IAC A1              / 11100100 00000001 - e401
+        
+MASK,   CML                 / 11100000 00010000 - e010 @1e
+        AND A0 I Z PC       / 00000011 0000FFFF - 030f
+        #00FF               /                   - 00ff
+        
+        JMP I Z A6          / 10100011 00000110 - a306
 
-		TAD A1 I Z PC		/ 00100111 00001111 - 270f
-		#00FF				/ 00000000 11111111 - 00ff
-		
-LOOP,	TAD A0 I Z I0		/ 00100011 00001000 - 2308 1d
-TEST,	SNA A0              / 11100001 00101000 - e128 1e
-		JMP END				/ 10100000 xxxxxxxx - a028
-		TPC A0				/ 11000000 00100100 - c024
-WAIT,	TSF					/ 11000000 00100001 - c021 21
-		JMP WAIT			/ 10100000 xxxxxxxx - a021
-		CML HSW A0			/ 11100000 00011110 - e01e
-		AND A0 Z A1			/ 00000001 00000001 - 0101
-		SNL					/ 11100001 00010000 - e110
-		JMP LOOP			/ 10100000 xxxxxxxx - a01d
-		JMP TEST			/ 10100000 xxxxxxxx - a01e
-		
-END,	TAD A0 Z I0			/ 00100001 00001000 - 2108 28
-		CLA A1				/ 11100100 10000000 - e480
-		DCA A1 Z I0			/ 01100101 00001000 - 6508
-		TAD A1 SAV1			/ 00100100 xxxxxxxx - 241a
-		JMP I Z A6          / 10100011 00000110 - a306
+@22
+PUTCHR, TPC A0              / 11000000 00100100 - c024
+WAIT,   TSF                 / 11000000 00100001 - c021 @23
+        JMP WAIT            / 10100000 xxxxxxxx - a023
+        JMP I Z A6          / 10100011 00000110 - a306
+
+@26
+PRINT,  DCA A6 I Z PC       / 01111011 00001111 - 7b0f
+SAVR,   #0000               /                   - 0000 @27
+        
+LOOP,   JMS A6 GETPKC       / 10011000 00011000 - 9818 @28
+        
+        SNA A0              / 11100001 00101000 - e128
+        JMP END             / 10100000 xxxxxxxx - a02d
+        
+        JMS A6 PUTCHR       / 10011000 00100010 - 9822
+        
+        JMP LOOP            / 10100000 xxxxxxxx - a028
+
+END,    CLA CML             / 11111000 10010000 - f890 @2d
+        TAD A6 SAVR         / 00111000 xxxxxxxx - 3827
+        JMP I Z A6          / 10100011 00000110 - a306
+
+/ Load A1 with string address
+
+a18
+de080
+d2301
+de110
+da01e
+de00e
+de401
+de010
+d030f
+d00ff
+da306
+dc024
+dc021
+da023
+da306
+d7b0f
+d0000
+d9818
+de128
+da02d
+d9822
+da028
+df890
+d3827
+da306
+d4548
+d4c4c
+d204f
+d4f57
+d4c52
+d2144
+d0000
