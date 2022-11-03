@@ -49,6 +49,33 @@ END,    CLA CML             / 11111000 10010000 - f890 @2d
         TAD A6 SAVR         / 00111000 xxxxxxxx - 3827
         JMP I Z A6          / 10100011 00000110 - a306
 
+@30
+GETLIN, DCA A1 I Z PC
+SAV1,   #0000
+        DCA A2 I Z PC
+SAV2,   #0000
+        DCA A3 I Z PC
+SAV3,   #0000
+        DCA A4 I Z PC
+SAV4,   #0000
+
+        TAD A4 I Z PC
+        #000A
+        
+        CLA A0
+
+READ,   KSF
+        JMP READ
+        
+        KRB A2
+        
+        XOR A3 A3
+        XOR A3 A2
+        XOR A3 A4
+        
+        SNA A3
+        JMP END
+
 / Load A1 with string address
 
 a18
