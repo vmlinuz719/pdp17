@@ -281,8 +281,8 @@ void reg_op(void) {
     int s_result = 0;
     
     switch ((mbr & 0x00F0) >> 4) {
-        case 0x00: // MOV
-            zpage[dst] = zpage[src];
+        case 0x00: // SIR
+            zpage[dst + 010] = zpage[src];
             break;
             
         case 0x01: // SWP
@@ -456,6 +456,11 @@ void cycle_IFETCH(void) {
                 
                 if (opcode == 4) zpage[get_flag_acc()] = zpage[PC];
                 zpage[PC] = (data_width_t) mar;
+            }
+            
+            else if (opcode == 5 && !indirect && zero
+            	&& mar <= PC && get_flag_acc()) { // MOV
+            	zpage[get_flag_acc() - 1] = zpage[mar];
             }
             
             else {
