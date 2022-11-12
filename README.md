@@ -1,7 +1,7 @@
 # pdp17
 What if the PDP-8 were stretched to 16 bits?
 
-`cc bus.c main.c cpu.c tty.c -o bus -lpthread`
+`cc bus.c main.c cpu.c tty.c -o pdp17 -lpthread`
 
 Suggested program:
 

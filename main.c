@@ -54,12 +54,12 @@ unsigned int run_cpu(void) {
     size_t ttyin_id = 3;
     pthread_create(&ttyin_tid, NULL, ttyin, (void *) &ttyin_id);
     
-    while ((zpage[7] & 0x1E0) >> 5 != 0xF && cpu_running) {
+    while ((zpage[FLAG] & 0x1E0) >> 5 != 0xF && cpu_running) {
         step();
         cycles++;
     }
     
-    zpage[7] &= ~(0x1E0);
+    zpage[FLAG] &= ~(0x1E0);
     
     run_tty = 0;
     pthread_join(tty_tid, NULL);
@@ -78,9 +78,9 @@ void regs(void) {
         zpage[0], zpage[1], zpage[2], zpage[3],
         zpage[4], zpage[5], zpage[6], zpage[7]);
     
-    printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n",
+    printf("%04hX %04hX %04hX %04hX %04hX %04hX %04hX %04hX\n%04hX\n",
         zpage[8], zpage[9], zpage[10], zpage[11],
-        zpage[12], zpage[13], zpage[14], zpage[15]);
+        zpage[12], zpage[13], zpage[14], zpage[15], zpage[FLAG]);
     
     return;
 }
@@ -183,15 +183,15 @@ int main(int argc, char *argv) {
             case 's': // single step
                 if (valid > 1) printf("?\n");
                 else {
-                    if ((zpage[7] & 0x1E0) >> 5 == 0xF)
-                        zpage[7] &= ~(0x1E0);
+                    if ((zpage[FLAG] & 0x1E0) >> 5 == 0xF)
+                        zpage[FLAG] &= ~(0x1E0);
                     step();
                 }
                 break;
             case 't': // step and show regs
                 if (valid == 1) {
-                    if ((zpage[7] & 0x1E0) >> 5 == 0xF)
-                        zpage[7] &= ~(0x1E0);
+                    if ((zpage[FLAG] & 0x1E0) >> 5 == 0xF)
+                        zpage[FLAG] &= ~(0x1E0);
                     step(); regs();
                 }
                 else printf("?\n");
@@ -202,7 +202,10 @@ int main(int argc, char *argv) {
                 else printf("?\n");
                 break;
             case 'z': // zap registers
-                if (valid == 1) for (int i = 0; i < 16; zpage[i++] = 0);
+                if (valid == 1) {
+                	for (int i = 0; i < 16; zpage[i++] = 0);
+                	zpage[FLAG] = 0;
+                }
                 else printf("?\n");
                 break;
             case 'w': // set switches

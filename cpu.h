@@ -10,14 +10,14 @@
 #define OP 1
 #define LK 0
 
-#define FLAG 07
+#define FLAG (PAGE_SIZE + 1)
 #define PC 017
 
 extern int cpu_read(addr_width_t src, data_width_t *dst);
 extern int cpu_write(addr_width_t dst, data_width_t src);
 extern int cpu_attn(size_t unit, data_width_t cmd);
 
-extern data_width_t zpage[PAGE_SIZE];
+extern data_width_t zpage[PAGE_SIZE + 1];
 extern data_width_t switches;
 
 extern pthread_mutex_t io_lock;

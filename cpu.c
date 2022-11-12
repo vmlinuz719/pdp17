@@ -7,7 +7,7 @@
 #include "bus.h"
 #include "cpu.h"
 
-data_width_t zpage[PAGE_SIZE];
+data_width_t zpage[PAGE_SIZE + 1];
 data_width_t switches;
 
 /*
@@ -430,7 +430,7 @@ void cycle_IFETCH(void) {
                     case 2: // ISZR
                         result = ++zpage[mar];
                         
-                        if (get_flag_acc()) cmp_val = zpage[get_flag_acc() - 1]; // ISE
+                        if (get_flag_acc()) cmp_val = zpage[get_flag_acc()]; // ISE
                         
                         if (result == cmp_val) zpage[PC]++;
                         break;
@@ -460,7 +460,7 @@ void cycle_IFETCH(void) {
             
             else if (opcode == 5 && !indirect && zero
             	&& mar <= PC && get_flag_acc()) { // MOV
-            	zpage[get_flag_acc() - 1] = zpage[mar];
+            	zpage[get_flag_acc()] = zpage[mar];
             }
             
             else {
@@ -554,7 +554,7 @@ void cycle_EXEC(void) {
             // ISZ/STA
             
             if (acc) { // STA
-                mbr = zpage[acc - 1];
+                mbr = zpage[acc];
                 local_write(mar, mbr);
                 zpage[FLAG] &= ~(1 << ID);
             }
@@ -597,7 +597,7 @@ void cycle_EXEC(void) {
             
             if (acc) { // LDA
                 local_read(mar, &mbr);
-                zpage[acc - 1] = mbr;
+                zpage[acc] = mbr;
                 zpage[FLAG] &= ~(1 << ID);
             }
             else { // JMP
