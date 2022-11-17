@@ -149,10 +149,22 @@ int get_flag_cycle() {
  * Calculate an address using an offset and zero-page bit.
  */
 
+uint16_t df = 0; // data field
+uint16_t ib = 0; // instruction buffer
+uint16_t if_ = 0; // instruction field
+uint8_t zp = 0; // zero page
+
 addr_width_t address(int z, addr_width_t offset) {
     offset &= offset_mask;
     
-    if (!z) offset |= zpage[PC] & ~offset_mask;
+    if (!z) {
+    	offset |= zpage[PC] & ~offset_mask;
+    	offset |= ((addr_width_t) df) << 16;
+    }
+    else if (z && offset > PC) {
+    	offset |= ((addr_width_t) zp) << offset_width;
+    	offset |= ((addr_width_t) df) << 16;
+    }
     
     return offset;
 }
@@ -467,10 +479,13 @@ void cycle_IFETCH(void) {
                 zpage[FLAG] |= 1 << EX;
                 
                 if (indirect) {
-                    if (mar <= PC)
-                        mar = (010 <= mar && PC >= mar)
+                    if (mar < PC)
+                        mar = ((010 <= mar && PC >= mar)
                             ? zpage[mar]++ 
-                            : zpage[mar];
+                            : zpage[mar])
+                            | ((addr_width_t) df) << 16;
+                    else if (mar == PC)
+                    	mar = zpage[PC]++ | ((addr_width_t) if_) << 16;
                     else zpage[FLAG] |= 1 << ID;
                 }
             }
@@ -488,11 +503,14 @@ void cycle_IFETCH(void) {
  */
 
 void cycle_INADDR(void) {
-    if (mar <= PC) {
-        mar = (010 <= mar && PC >= mar)
+    if (mar < PC)
+        mar = ((010 <= mar && PC >= mar)
             ? zpage[mar]++ 
-            : zpage[mar];
-    } else {
+            : zpage[mar])
+            | ((addr_width_t) df) << 16;
+    else if (mar == PC)
+        mar = zpage[PC]++ | ((addr_width_t) if_) << 16;
+    else {
         bus_read(mar, &mbr);
         mar = mbr;
     }
