@@ -153,6 +153,7 @@ uint16_t df = 0; // data field
 uint16_t ib = 0; // instruction buffer
 uint16_t if_ = 0; // instruction field
 uint8_t zp = 0; // zero page
+int jump_int_lockout = 0;
 
 addr_width_t address(int z, addr_width_t offset) {
     offset &= offset_mask;
@@ -381,7 +382,7 @@ void reg_op(void) {
 void cycle_IFETCH(void) {
     zpage[FLAG] &= 1;
 
-    mar = zpage[PC]++;
+    mar = zpage[PC]++ | ((addr_width_t) if_) << 16;
     bus_read(mar, &mbr);
     // printf("%04X %04hX\n", mar, mbr);
     
@@ -393,11 +394,60 @@ void cycle_IFETCH(void) {
             set_flag_tmp(mbr & 0x7);
             set_flag_acc(get_mbr_acc());
             
-            zpage[FLAG] |= 1 << IO;
-            set_flag_cycle(4);
+            if (mar == 0b010000) { // SZP, SDF, SIB, SDI, LZP, LDF, LIF, LDI
+            	uint16_t field;
+            	if (!(mbr & 0x8)) field = zpage[get_flag_acc()];
+            	else field = get_flag_acc() | (get_flag_acc() << 8);
+            	
+            	switch (get_flag_tmp()) {
+            		case 0: // Set Zero Page
+            			zp = field & 0xFF;
+            			break;
+            	
+            		case 1: // Set Data Field
+            			df = field & 0xFF;
+            			break;
+            		
+            		case 2: // Set Instruction Buffer
+            			ib = field & 0xFF;
+            			jump_int_lockout = 1;
+            			break;
+            		
+            		case 3: // Set Data Field, Instruction Buffer
+            			df = field & 0xFF;
+            			ib = (field & 0xFF00) >> 8;
+            			jump_int_lockout = 1;
+            			break;
+            		
+            		case 4: // Load Zero Page
+            			zpage[get_flag_acc()] = zp;
+            			break;
+            			
+            		case 5: // Load Data Field
+            			zpage[get_flag_acc()] = df;
+            			break;
+            			
+            		case 6: // Load Instruction Field
+            			zpage[get_flag_acc()] = if_;
+            			break;
+            			
+            		case 7: // Load Data Field, Instruction Field
+            			zpage[get_flag_acc()] = df;
+            			zpage[get_flag_acc()] |= if_ << 8;
+            			break;
+            	}
+            }
             
-            if (bus_attn(mar, get_flag_tmp()))
-                zpage[FLAG] &= ~(1 << IO);
+            else {
+            	zpage[FLAG] |= 1 << IO;
+            	set_flag_cycle(4);
+            	
+            	if (bus_attn(mar, get_flag_tmp())) {
+                	zpage[FLAG] &= ~(1 << IO);
+                	set_flag_cycle(0);
+                }
+            }
+            
             break;
         
         case 7:
@@ -461,6 +511,9 @@ void cycle_IFETCH(void) {
                     : zpage[mar];
                 if (opcode == 4) zpage[get_flag_acc()] = zpage[PC];
                 zpage[PC] = jmp_addr;
+                
+                if_ = ib;
+                jump_int_lockout = 0;
             }
             
             else if ((opcode == 4 && !indirect)
@@ -468,6 +521,9 @@ void cycle_IFETCH(void) {
                 
                 if (opcode == 4) zpage[get_flag_acc()] = zpage[PC];
                 zpage[PC] = (data_width_t) mar;
+                
+                if_ = ib;
+                jump_int_lockout = 0;
             }
             
             else if (opcode == 5 && !indirect && zero
@@ -608,6 +664,9 @@ void cycle_EXEC(void) {
 
             zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
             zpage[get_flag_acc()] = mbr;
+            
+            if_ = ib;
+            jump_int_lockout = 0;
             break;
         
         case 5:
@@ -621,6 +680,8 @@ void cycle_EXEC(void) {
             else { // JMP
                 zpage[PC] = (data_width_t) mar;
                 zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
+                if_ = ib;
+                jump_int_lockout = 0;
             }
             break;
         
