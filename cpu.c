@@ -568,7 +568,7 @@ void cycle_INADDR(void) {
         mar = zpage[PC]++ | ((addr_width_t) if_) << 16;
     else {
         bus_read(mar, &mbr);
-        mar = mbr;
+        mar = ((addr_width_t) mbr) | ((addr_width_t) df) << 16;
     }
     
     set_flag_cycle(3);
