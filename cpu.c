@@ -559,8 +559,17 @@ void cycle_IFETCH(void) {
  */
 
 void cycle_INADDR(void) {
-    bus_read(mar, &mbr);
-    mar = mbr;
+    if (mar < PC)
+        mar = ((010 <= mar && PC >= mar)
+            ? zpage[mar]++ 
+            : zpage[mar])
+            | ((addr_width_t) df) << 16;
+    else if (mar == PC)
+        mar = zpage[PC]++ | ((addr_width_t) if_) << 16;
+    else {
+        bus_read(mar, &mbr);
+        mar = mbr;
+    }
     
     set_flag_cycle(3);
     
@@ -571,13 +580,31 @@ void cycle_INADDR(void) {
  * Cycle 3: EXEC
  */
 
+int local_read(addr_width_t src, data_width_t *dst) {
+    if (src <= PC) {
+        *dst = zpage[src];
+        return 0;
+    } else {
+        return bus_read(src, dst);
+    }
+}
+
+int local_write(addr_width_t dst, data_width_t src) {
+    if (dst <= PC) {
+        zpage[dst] = src;
+        return 0;
+    } else {
+        return bus_write(dst, src);
+    }
+}
+
 void cycle_EXEC(void) {
     int acc = get_flag_acc();
     
     switch (get_flag_tmp()) {
         case 0:
             // AND
-            bus_read(mar, &mbr);
+            local_read(mar, &mbr);
             
             mbr = zpage[acc] & mbr;
             zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
@@ -586,7 +613,7 @@ void cycle_EXEC(void) {
         
         case 1:
             // TAD
-            bus_read(mar, &mbr);
+            local_read(mar, &mbr);
             
             int result = (int) zpage[acc] + (int) mbr;
             mbr = (data_width_t) (result & 0xFFFF);
@@ -602,17 +629,21 @@ void cycle_EXEC(void) {
             
             if (acc) { // STA
                 mbr = zpage[acc];
-                bus_write(mar, mbr);
+                local_write(mar, mbr);
                 zpage[FLAG] &= ~(1 << ID);
             }
             
             else { // ISZ
-                bus_read(mar, &mbr);
+                local_read(mar, &mbr);
                 mbr++;
                 
                 if (mbr == 0) zpage[PC]++;
                 
-                zpage[FLAG] |= 1 << ID; // deferred writeback to memory
+                if (mar <= PC) { // contents in register, no deferral needed
+                    zpage[mar]++;
+                    zpage[FLAG] &= ~(1 << ID);
+                }
+                else zpage[FLAG] |= 1 << ID; // deferred writeback to memory
             }
             
             break;
@@ -620,7 +651,7 @@ void cycle_EXEC(void) {
         case 3:
             // DCA
             mbr = zpage[acc];
-            bus_write(mar, mbr);
+            local_write(mar, mbr);
             
             zpage[FLAG] &= ~(1 << ID); // writeback to accumulator
             zpage[get_flag_acc()] = 0;
@@ -642,7 +673,7 @@ void cycle_EXEC(void) {
             // JMP/LDA
             
             if (acc) { // LDA
-                bus_read(mar, &mbr);
+                local_read(mar, &mbr);
                 zpage[acc] = mbr;
                 zpage[FLAG] &= ~(1 << ID);
             }
@@ -680,7 +711,8 @@ void cycle_IOWAIT(void) {
 void cycle_WTBACK(void) {
     set_flag_cycle(0);
 
-    bus_write(mar, mbr);
+    if (zpage[FLAG] & 1 << ID) local_write(mar, mbr);
+    else zpage[get_flag_acc()] = mbr;
     
     return;
 }
